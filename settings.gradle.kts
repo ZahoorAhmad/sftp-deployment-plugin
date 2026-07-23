@@ -1,1 +1,1 @@
-rootProject.name = "sftp-deployment"
+rootProject.name = "my-sftp-plugin"

@@ -31,6 +31,9 @@ tasks {
     }
     patchPluginXml {
         sinceBuild.set("232")
-        untilBuild.set("242.*")
+        untilBuild.set(provider { null })
+    }
+    buildPlugin {
+        archiveBaseName.set("my-custom-sftp-plugin")
     }
 }
