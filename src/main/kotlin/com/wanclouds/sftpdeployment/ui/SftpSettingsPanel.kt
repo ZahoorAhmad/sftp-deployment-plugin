@@ -4,8 +4,6 @@ import com.wanclouds.sftpdeployment.model.AuthType
 import com.wanclouds.sftpdeployment.model.DeploymentProfile
 import com.wanclouds.sftpdeployment.model.SshServer
 import com.wanclouds.sftpdeployment.sftp.SftpClient
-import com.intellij.notification.NotificationGroupManager
-import com.intellij.notification.NotificationType
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.progress.ProgressIndicator
@@ -13,6 +11,7 @@ import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.DialogPanel
+import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.ui.CollectionListModel
 import com.intellij.ui.ToolbarDecorator
@@ -22,6 +21,8 @@ import com.intellij.ui.components.JBPasswordField
 import com.intellij.ui.components.JBTextField
 import com.intellij.ui.dsl.builder.Align
 import com.intellij.ui.dsl.builder.panel
+import javax.swing.event.DocumentEvent
+import javax.swing.event.DocumentListener
 
 class SftpSettingsPanel {
     val serverListModel = CollectionListModel<SshServer>()
@@ -45,13 +46,26 @@ class SftpSettingsPanel {
     val depRemotePath = JBTextField()
     val depAutoUpload = JBCheckBox("Auto-upload on save")
 
+    private var isUpdatingUi = false
+
     val panel: DialogPanel = panel {
         collapsibleGroup("SSH Servers") {
             row {
-                cell(ToolbarDecorator.createDecorator(serverList).setAddAction {
-                    serverListModel.add(SshServer())
-                    serverList.selectedIndex = serverListModel.size - 1
-                }.createPanel()).align(Align.FILL)
+                cell(ToolbarDecorator.createDecorator(serverList)
+                    .setAddAction {
+                        val newServer = SshServer(name = "New SSH Server")
+                        serverListModel.add(newServer)
+                        serverList.selectedValue = newServer
+                        refreshServerDropdown()
+                    }
+                    .setRemoveAction {
+                        val selected = serverList.selectedValue
+                        if (selected != null) {
+                            serverListModel.remove(selected)
+                            refreshServerDropdown()
+                        }
+                    }
+                    .createPanel()).align(Align.FILL)
                 
                 panel {
                     row("Name:") { cell(srvName).align(Align.FILL) }
@@ -69,10 +83,19 @@ class SftpSettingsPanel {
         }
         collapsibleGroup("Deployment Profiles") {
             row {
-                cell(ToolbarDecorator.createDecorator(deploymentList).setAddAction {
-                    deploymentListModel.add(DeploymentProfile())
-                    deploymentList.selectedIndex = deploymentListModel.size - 1
-                }.createPanel()).align(Align.FILL)
+                cell(ToolbarDecorator.createDecorator(deploymentList)
+                    .setAddAction {
+                        val newDep = DeploymentProfile(name = "New Profile")
+                        deploymentListModel.add(newDep)
+                        deploymentList.selectedValue = newDep
+                    }
+                    .setRemoveAction {
+                        val selected = deploymentList.selectedValue
+                        if (selected != null) {
+                            deploymentListModel.remove(selected)
+                        }
+                    }
+                    .createPanel()).align(Align.FILL)
                 
                 panel {
                     row("Name:") { cell(depName).align(Align.FILL) }
@@ -85,39 +108,98 @@ class SftpSettingsPanel {
     }
 
     init {
-        serverList.addListSelectionListener { loadServer(serverList.selectedValue) }
-        deploymentList.addListSelectionListener { loadDeployment(deploymentList.selectedValue) }
+        serverList.addListSelectionListener { 
+            if (!isUpdatingUi) loadServer(serverList.selectedValue) 
+        }
+        deploymentList.addListSelectionListener { 
+            if (!isUpdatingUi) loadDeployment(deploymentList.selectedValue) 
+        }
+
+        bindLiveFields()
+    }
+
+    private fun bindLiveFields() {
+        val listener = object : DocumentListener {
+            override fun insertUpdate(e: DocumentEvent?) = updateCurrentServer()
+            override fun removeUpdate(e: DocumentEvent?) = updateCurrentServer()
+            override fun changedUpdate(e: DocumentEvent?) = updateCurrentServer()
+        }
+        srvName.document.addDocumentListener(listener)
+        srvHost.document.addDocumentListener(listener)
+        srvPort.document.addDocumentListener(listener)
+        srvUser.document.addDocumentListener(listener)
+        srvSecret.document.addDocumentListener(listener)
+        srvKeyPath.textField.document.addDocumentListener(listener)
+        srvAuthType.addActionListener { updateCurrentServer() }
+    }
+
+    private fun updateCurrentServer() {
+        if (isUpdatingUi) return
+        val current = serverList.selectedValue ?: return
+        current.name = srvName.text
+        current.host = srvHost.text
+        current.port = srvPort.text.toIntOrNull() ?: 22
+        current.user = srvUser.text
+        current.authType = srvAuthType.selectedItem as AuthType
+        current.privateKeyPath = srvKeyPath.text
+        current.secret = String(srvSecret.password)
+        serverList.repaint()
+        refreshServerDropdown()
+    }
+
+    private fun refreshServerDropdown() {
+        val currentSelected = serverDropdown.selectedItem
+        serverDropdown.removeAllItems()
+        serverListModel.items.forEach { serverDropdown.addItem(it) }
+        if (currentSelected in serverListModel.items) {
+            serverDropdown.selectedItem = currentSelected
+        }
     }
 
     private fun loadServer(server: SshServer?) {
-        if (server == null) return
-        srvName.text = server.name
-        srvHost.text = server.host
-        srvPort.text = server.port.toString()
-        srvUser.text = server.user
-        srvAuthType.selectedItem = server.authType
-        srvKeyPath.text = server.privateKeyPath
-        srvSecret.text = server.secret ?: ""
+        isUpdatingUi = true
+        try {
+            if (server == null) {
+                srvName.text = ""
+                srvHost.text = ""
+                srvPort.text = "22"
+                srvUser.text = ""
+                srvKeyPath.text = ""
+                srvSecret.text = ""
+                return
+            }
+            srvName.text = server.name
+            srvHost.text = server.host
+            srvPort.text = server.port.toString()
+            srvUser.text = server.user
+            srvAuthType.selectedItem = server.authType
+            srvKeyPath.text = server.privateKeyPath
+            srvSecret.text = server.secret ?: ""
+        } finally {
+            isUpdatingUi = false
+        }
     }
 
     private fun loadDeployment(dep: DeploymentProfile?) {
-        if (dep == null) return
-        depName.text = dep.name
-        depRemotePath.text = dep.remotePath
-        depAutoUpload.isSelected = dep.autoUploadOnSave
-        serverDropdown.selectedItem = serverListModel.items.find { it.id == dep.sshServerId }
+        isUpdatingUi = true
+        try {
+            if (dep == null) {
+                depName.text = ""
+                depRemotePath.text = ""
+                depAutoUpload.isSelected = false
+                return
+            }
+            depName.text = dep.name
+            depRemotePath.text = dep.remotePath
+            depAutoUpload.isSelected = dep.autoUploadOnSave
+            serverDropdown.selectedItem = serverListModel.items.find { it.id == dep.sshServerId }
+        } finally {
+            isUpdatingUi = false
+        }
     }
 
     fun saveCurrentSelection() {
-        serverList.selectedValue?.let {
-            it.name = srvName.text
-            it.host = srvHost.text
-            it.port = srvPort.text.toIntOrNull() ?: 22
-            it.user = srvUser.text
-            it.authType = srvAuthType.selectedItem as AuthType
-            it.privateKeyPath = srvKeyPath.text
-            it.secret = String(srvSecret.password)
-        }
+        updateCurrentServer()
         deploymentList.selectedValue?.let {
             it.name = depName.text
             it.sshServerId = (serverDropdown.selectedItem as? SshServer)?.id ?: ""
@@ -127,12 +209,18 @@ class SftpSettingsPanel {
     }
 
     private fun testConnection() {
+        val host = srvHost.text.trim()
+        if (host.isEmpty()) {
+            Messages.showErrorDialog("Please enter a valid Host IP or hostname.", "Connection Failed")
+            return
+        }
+
         val tempServer = SshServer(
-            host = srvHost.text,
+            host = host,
             port = srvPort.text.toIntOrNull() ?: 22,
-            user = srvUser.text,
+            user = srvUser.text.trim(),
             authType = srvAuthType.selectedItem as AuthType,
-            privateKeyPath = srvKeyPath.text
+            privateKeyPath = srvKeyPath.text.trim()
         ).apply { secret = String(srvSecret.password) }
 
         ProgressManager.getInstance().run(object : Task.Backgroundable(null, "Testing SSH Connection...", false) {
@@ -140,15 +228,14 @@ class SftpSettingsPanel {
                 indicator.isIndeterminate = true
                 val result = SftpClient.testConnection(tempServer)
                 ApplicationManager.getApplication().invokeLater {
-                    val isOk = result.isSuccess
-                    val msg = result.fold(onSuccess = { it }, onFailure = { it.message ?: "Unknown Error" })
-                    
-                    NotificationGroupManager.getInstance().getNotificationGroup("SFTP Connection Test")
-                        .createNotification(
-                            if (isOk) "Connection Successful" else "Connection Failed",
-                            msg,
-                            if (isOk) NotificationType.INFORMATION else NotificationType.ERROR
-                        ).notify(null)
+                    result.fold(
+                        onSuccess = { msg ->
+                            Messages.showInfoMessage(msg, "Connection Test Succeeded")
+                        },
+                        onFailure = { err ->
+                            Messages.showErrorDialog(err.message ?: "Failed to connect to $host", "Connection Test Failed")
+                        }
+                    )
                 }
             }
         })

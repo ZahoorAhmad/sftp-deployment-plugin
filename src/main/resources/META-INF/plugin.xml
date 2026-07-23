@@ -1,71 +1,25 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <idea-plugin>
     <id>com.wanclouds.sftpdeployment</id>
     <name>SFTP Deployment</name>
-    <vendor email="info@wanclouds.com" url="https://www.wanclouds.com">WanClouds</vendor>
-
-    <description><![CDATA[
-        <p>A powerful SFTP deployment plugin for PyCharm and IntelliJ Community Edition that brings remote deployment features to non-professional editions.</p>
-        <p><strong>Features:</strong></p>
-        <ul>
-            <li>Multiple SSH server profiles with secure credential storage</li>
-            <li>Support for password and SSH key authentication</li>
-            <li>Multiple deployment profiles with customizable remote paths</li>
-            <li>Auto-upload files on save (Ctrl+S / Cmd+S)</li>
-            <li>Upload/Download context menu actions</li>
-            <li>Connection testing with instant feedback</li>
-            <li>Secure credential storage using IntelliJ PasswordSafe</li>
-        </ul>
-    ]]></description>
+    <vendor email="support@wanclouds.net" url="https://www.wanclouds.net">WanClouds</vendor>
 
     <depends>com.intellij.modules.platform</depends>
-    <depends>com.intellij.modules.lang</depends>
-
-    <resource-bundle>messages.SftpDeploymentBundle</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">
-        <!-- Application-level service for settings -->
-        <applicationService serviceImplementation="com.wanclouds.sftpdeployment.settings.SftpSettings"/>
-
-        <!-- Settings page in Tools menu -->
-        <applicationConfigurable 
-            parentId="tools" 
+        <projectConfigurable
+            parentId="tools"
             instance="com.wanclouds.sftpdeployment.ui.SftpSettingsConfigurable"
-            id="com.wanclouds.sftpdeployment.settings"
+            id="com.wanclouds.sftpdeployment.ui.SftpSettingsConfigurable"
             displayName="SFTP Deployment"/>
-
-        <!-- Notification group for user feedback -->
-        <notificationGroup id="SFTP Deployment" displayType="BALLOON"/>
-
-        <!-- File document manager listener for auto-upload -->
-        <fileDocumentManagerListener implementation="com.wanclouds.sftpdeployment.actions.AutoUploadListener"/>
+        <applicationService serviceImplementation="com.wanclouds.sftpdeployment.settings.SftpSettings"/>
+        <notificationGroup id="SFTP Connection Test" displayType="BALLOON"/>
     </extensions>
 
     <actions>
-        <!-- Context menu actions for Project View -->
-        <action id="SftpUploadAction" 
-                class="com.wanclouds.sftpdeployment.actions.UploadAction"
-                text="Upload to Remote"
-                description="Upload file to remote SFTP server">
+        <group id="SftpDeploymentMenu" text="SFTP Deployment" popup="true">
             <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
-        </action>
-
-        <action id="SftpDownloadAction" 
-                class="com.wanclouds.sftpdeployment.actions.DownloadAction"
-                text="Download from Remote"
-                description="Download file from remote SFTP server">
-            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
-        </action>
+            <action id="SftpUploadAction" class="com.wanclouds.sftpdeployment.actions.UploadAction" text="Upload via SFTP"/>
+            <action id="SftpDownloadAction" class="com.wanclouds.sftpdeployment.actions.DownloadAction" text="Download via SFTP"/>
+        </group>
     </actions>
-
-    <change-notes><![CDATA[
-        <strong>Version 1.0.0</strong>
-        <ul>
-            <li>Initial release</li>
-            <li>Full SFTP deployment support with multiple profiles</li>
-            <li>Secure credential storage</li>
-            <li>Auto-upload on save functionality</li>
-            <li>Connection testing and validation</li>
-        </ul>
-    ]]></change-notes>
 </idea-plugin>
