@@ -5,15 +5,15 @@ import java.util.UUID
 
 enum class AuthType { PASSWORD, KEY_PAIR }
 
-data class SshServer(
-    var id: String = UUID.randomUUID().toString(),
-    var name: String = "New SSH Server",
-    var host: String = "",
-    var port: Int = 22,
-    var user: String = "",
-    var authType: AuthType = AuthType.PASSWORD,
+class SshServer {
+    var id: String = UUID.randomUUID().toString()
+    var name: String = "New SSH Server"
+    var host: String = ""
+    var port: Int = 22
+    var user: String = ""
+    var authType: AuthType = AuthType.PASSWORD
     var privateKeyPath: String = ""
-) {
+
     @get:Transient
     @set:Transient
     var secret: String?
@@ -21,16 +21,39 @@ data class SshServer(
         set(value) {
             SecureCredentialManager.savePassword(id, user, value)
         }
-    
-    override fun toString(): String = name
+
+    fun copy(): SshServer {
+        val s = SshServer()
+        s.id = this.id
+        s.name = this.name
+        s.host = this.host
+        s.port = this.port
+        s.user = this.user
+        s.authType = this.authType
+        s.privateKeyPath = this.privateKeyPath
+        s.secret = this.secret
+        return s
+    }
+
+    override fun toString(): String = if (name.isNotBlank()) name else "Unnamed Server"
 }
 
-data class DeploymentProfile(
-    var id: String = UUID.randomUUID().toString(),
-    var name: String = "Production Sync",
-    var sshServerId: String = "",
-    var remotePath: String = "/var/www/html",
+class DeploymentProfile {
+    var id: String = UUID.randomUUID().toString()
+    var name: String = "New Profile"
+    var sshServerId: String = ""
+    var remotePath: String = "/var/www/html"
     var autoUploadOnSave: Boolean = false
-) {
-    override fun toString(): String = name
+
+    fun copy(): DeploymentProfile {
+        val p = DeploymentProfile()
+        p.id = this.id
+        p.name = this.name
+        p.sshServerId = this.sshServerId
+        p.remotePath = this.remotePath
+        p.autoUploadOnSave = this.autoUploadOnSave
+        return p
+    }
+
+    override fun toString(): String = if (name.isNotBlank()) name else "Unnamed Profile"
 }

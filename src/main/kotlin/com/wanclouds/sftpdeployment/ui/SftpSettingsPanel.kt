@@ -27,7 +27,7 @@ import javax.swing.event.DocumentListener
 class SftpSettingsPanel {
     val serverListModel = CollectionListModel<SshServer>()
     val serverList = JBList(serverListModel)
-    
+
     val deploymentListModel = CollectionListModel<DeploymentProfile>()
     val deploymentList = JBList(deploymentListModel)
 
@@ -53,7 +53,7 @@ class SftpSettingsPanel {
             row {
                 cell(ToolbarDecorator.createDecorator(serverList)
                     .setAddAction {
-                        val newServer = SshServer(name = "New SSH Server")
+                        val newServer = SshServer()
                         serverListModel.add(newServer)
                         serverList.setSelectedValue(newServer, true)
                         refreshServerDropdown()
@@ -66,7 +66,7 @@ class SftpSettingsPanel {
                         }
                     }
                     .createPanel()).align(Align.FILL)
-                
+
                 panel {
                     row("Name:") { cell(srvName).align(Align.FILL) }
                     row("Host:") { cell(srvHost).align(Align.FILL) }
@@ -85,7 +85,7 @@ class SftpSettingsPanel {
             row {
                 cell(ToolbarDecorator.createDecorator(deploymentList)
                     .setAddAction {
-                        val newDep = DeploymentProfile(name = "New Profile")
+                        val newDep = DeploymentProfile()
                         deploymentListModel.add(newDep)
                         deploymentList.setSelectedValue(newDep, true)
                     }
@@ -96,7 +96,7 @@ class SftpSettingsPanel {
                         }
                     }
                     .createPanel()).align(Align.FILL)
-                
+
                 panel {
                     row("Name:") { cell(depName).align(Align.FILL) }
                     row("SSH Server:") { cell(serverDropdown).align(Align.FILL) }
@@ -108,11 +108,11 @@ class SftpSettingsPanel {
     }
 
     init {
-        serverList.addListSelectionListener { 
-            if (!isUpdatingUi) loadServer(serverList.selectedValue) 
+        serverList.addListSelectionListener {
+            if (!isUpdatingUi) loadServer(serverList.selectedValue)
         }
-        deploymentList.addListSelectionListener { 
-            if (!isUpdatingUi) loadDeployment(deploymentList.selectedValue) 
+        deploymentList.addListSelectionListener {
+            if (!isUpdatingUi) loadDeployment(deploymentList.selectedValue)
         }
 
         bindLiveFields()
@@ -147,7 +147,7 @@ class SftpSettingsPanel {
         refreshServerDropdown()
     }
 
-    private fun refreshServerDropdown() {
+    fun refreshServerDropdown() {
         val currentSelected = serverDropdown.selectedItem
         serverDropdown.removeAllItems()
         serverListModel.items.forEach { serverDropdown.addItem(it) }
@@ -215,13 +215,14 @@ class SftpSettingsPanel {
             return
         }
 
-        val tempServer = SshServer(
-            host = host,
-            port = srvPort.text.toIntOrNull() ?: 22,
-            user = srvUser.text.trim(),
-            authType = srvAuthType.selectedItem as AuthType,
-            privateKeyPath = srvKeyPath.text.trim()
-        ).apply { secret = String(srvSecret.password) }
+        val tempServer = SshServer().apply {
+            this.host = host
+            this.port = srvPort.text.toIntOrNull() ?: 22
+            this.user = srvUser.text.trim()
+            this.authType = srvAuthType.selectedItem as AuthType
+            this.privateKeyPath = srvKeyPath.text.trim()
+            this.secret = String(srvSecret.password)
+        }
 
         ProgressManager.getInstance().run(object : Task.Backgroundable(null, "Testing SSH Connection...", false) {
             override fun run(indicator: ProgressIndicator) {

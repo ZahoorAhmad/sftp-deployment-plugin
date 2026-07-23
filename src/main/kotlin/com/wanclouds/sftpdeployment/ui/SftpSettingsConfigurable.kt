@@ -7,7 +7,7 @@ import javax.swing.JComponent
 class SftpSettingsConfigurable : SearchableConfigurable {
     private var uiComponent: SftpSettingsPanel? = null
 
-    override fun getId(): String = "preferences.SftpDeployment"
+    override fun getId(): String = "com.wanclouds.sftpdeployment.ui.SftpSettingsConfigurable"
     override fun getDisplayName(): String = "SFTP Deployment"
 
     override fun createComponent(): JComponent {
@@ -20,10 +20,10 @@ class SftpSettingsConfigurable : SearchableConfigurable {
     override fun apply() {
         val settings = SftpSettings.getInstance()
         val ui = uiComponent ?: return
-        
+
         ui.saveCurrentSelection()
-        settings.sshServers = ui.serverListModel.items.toMutableList()
-        settings.deployments = ui.deploymentListModel.items.toMutableList()
+        settings.sshServers = ui.serverListModel.items.map { it.copy() }.toMutableList()
+        settings.deployments = ui.deploymentListModel.items.map { it.copy() }.toMutableList()
         settings.activeDeploymentId = ui.deploymentList.selectedValue?.id ?: ""
     }
 
@@ -33,9 +33,14 @@ class SftpSettingsConfigurable : SearchableConfigurable {
 
         ui.serverListModel.replaceAll(settings.sshServers.map { it.copy() })
         ui.deploymentListModel.replaceAll(settings.deployments.map { it.copy() })
-        
-        ui.serverDropdown.removeAllItems()
-        ui.serverListModel.items.forEach { ui.serverDropdown.addItem(it) }
+
+        ui.refreshServerDropdown()
+        if (ui.serverListModel.size > 0) {
+            ui.serverList.selectedIndex = 0
+        }
+        if (ui.deploymentListModel.size > 0) {
+            ui.deploymentList.selectedIndex = 0
+        }
     }
 
     override fun disposeUIResources() {
