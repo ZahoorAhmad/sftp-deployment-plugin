@@ -55,7 +55,7 @@ class SftpSettingsPanel {
                     .setAddAction {
                         val newServer = SshServer(name = "New SSH Server")
                         serverListModel.add(newServer)
-                        serverList.selectedValue = newServer
+                        serverList.setSelectedValue(newServer, true)
                         refreshServerDropdown()
                     }
                     .setRemoveAction {
@@ -87,7 +87,7 @@ class SftpSettingsPanel {
                     .setAddAction {
                         val newDep = DeploymentProfile(name = "New Profile")
                         deploymentListModel.add(newDep)
-                        deploymentList.selectedValue = newDep
+                        deploymentList.setSelectedValue(newDep, true)
                     }
                     .setRemoveAction {
                         val selected = deploymentList.selectedValue
