@@ -4,6 +4,7 @@
     <vendor email="support@wanclouds.net" url="https://www.wanclouds.net">WanClouds</vendor>
 
     <depends>com.intellij.modules.platform</depends>
+    <depends>Git4Idea</depends>
 
     <extensions defaultExtensionNs="com.intellij">
         <projectConfigurable
@@ -13,6 +14,11 @@
             displayName="SFTP Deployment"/>
         <applicationService serviceImplementation="com.wanclouds.sftpdeployment.settings.SftpSettings"/>
         <notificationGroup id="SFTP Connection Test" displayType="BALLOON"/>
+        
+        <toolWindow id="SFTP Changes" 
+                    anchor="right" 
+                    factoryClass="com.wanclouds.sftpdeployment.ui.SftpToolWindowFactory"
+                    icon="AllIcons.Actions.Upload"/>
     </extensions>
 
     <actions>

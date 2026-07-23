@@ -11,7 +11,6 @@ import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.vfs.VirtualFile
 import java.io.File
 
 abstract class BaseSftpAction : AnAction() {
@@ -37,7 +36,9 @@ class UploadAction : BaseSftpAction() {
             return
         }
 
-        ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Uploading to ${server.host}...", false) {
+        val serverDisplayName = if (server.name.isNotBlank()) server.name else server.host
+
+        ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Uploading to $serverDisplayName...", false) {
             override fun run(indicator: ProgressIndicator) {
                 try {
                     val basePath = project.basePath ?: ""
@@ -49,7 +50,7 @@ class UploadAction : BaseSftpAction() {
                     }
 
                     SftpClient.upload(server, localFile, profile.remotePath, relativePath)
-                    notify(project, "Upload Successful", "Uploaded ${virtualFile.name} to ${profile.remotePath}", NotificationType.INFORMATION)
+                    notify(project, "Upload Successful", "Uploaded ${virtualFile.name} to $serverDisplayName (${profile.remotePath})", NotificationType.INFORMATION)
                 } catch (ex: Exception) {
                     notify(project, "Upload Failed", ex.message ?: "Unknown error occurred", NotificationType.ERROR)
                 }
@@ -72,7 +73,9 @@ class DownloadAction : BaseSftpAction() {
             return
         }
 
-        ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Downloading from ${server.host}...", false) {
+        val serverDisplayName = if (server.name.isNotBlank()) server.name else server.host
+
+        ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Downloading from $serverDisplayName...", false) {
             override fun run(indicator: ProgressIndicator) {
                 try {
                     val basePath = project.basePath ?: ""
@@ -85,7 +88,7 @@ class DownloadAction : BaseSftpAction() {
 
                     SftpClient.download(server, remoteFilePath, virtualFile.path)
                     virtualFile.refresh(false, false)
-                    notify(project, "Download Successful", "Downloaded ${virtualFile.name}", NotificationType.INFORMATION)
+                    notify(project, "Download Successful", "Downloaded ${virtualFile.name} from $serverDisplayName", NotificationType.INFORMATION)
                 } catch (ex: Exception) {
                     notify(project, "Download Failed", ex.message ?: "Unknown error occurred", NotificationType.ERROR)
                 }
