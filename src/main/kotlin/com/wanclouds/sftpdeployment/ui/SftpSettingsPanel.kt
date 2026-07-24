@@ -9,6 +9,7 @@ import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.DialogPanel
 import com.intellij.openapi.ui.Messages
@@ -24,12 +25,14 @@ import com.intellij.ui.dsl.builder.panel
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
 
-class SftpSettingsPanel {
+class SftpSettingsPanel(private val project: Project) {
     val serverListModel = CollectionListModel<SshServer>()
     val serverList = JBList(serverListModel)
 
     val deploymentListModel = CollectionListModel<DeploymentProfile>()
     val deploymentList = JBList(deploymentListModel)
+
+    val defaultProfileDropdown = ComboBox<DeploymentProfile>()
 
     val srvName = JBTextField()
     val srvHost = JBTextField()
@@ -49,6 +52,11 @@ class SftpSettingsPanel {
     private var isUpdatingUi = false
 
     val panel: DialogPanel = panel {
+        group("Active Project Profile") {
+            row("Default Profile for this Repo:") {
+                cell(defaultProfileDropdown).align(Align.FILL)
+            }
+        }
         collapsibleGroup("SSH Servers") {
             row {
                 cell(ToolbarDecorator.createDecorator(serverList)
@@ -88,11 +96,13 @@ class SftpSettingsPanel {
                         val newDep = DeploymentProfile()
                         deploymentListModel.add(newDep)
                         deploymentList.setSelectedValue(newDep, true)
+                        refreshDefaultProfileDropdown()
                     }
                     .setRemoveAction {
                         val selected = deploymentList.selectedValue
                         if (selected != null) {
                             deploymentListModel.remove(selected)
+                            refreshDefaultProfileDropdown()
                         }
                     }
                     .createPanel()).align(Align.FILL)
@@ -131,6 +141,13 @@ class SftpSettingsPanel {
         srvSecret.document.addDocumentListener(listener)
         srvKeyPath.textField.document.addDocumentListener(listener)
         srvAuthType.addActionListener { updateCurrentServer() }
+
+        val depListener = object : DocumentListener {
+            override fun insertUpdate(e: DocumentEvent?) = updateCurrentDeployment()
+            override fun removeUpdate(e: DocumentEvent?) = updateCurrentDeployment()
+            override fun changedUpdate(e: DocumentEvent?) = updateCurrentDeployment()
+        }
+        depName.document.addDocumentListener(depListener)
     }
 
     private fun updateCurrentServer() {
@@ -147,6 +164,14 @@ class SftpSettingsPanel {
         refreshServerDropdown()
     }
 
+    private fun updateCurrentDeployment() {
+        if (isUpdatingUi) return
+        val current = deploymentList.selectedValue ?: return
+        current.name = depName.text
+        deploymentList.repaint()
+        refreshDefaultProfileDropdown()
+    }
+
     fun refreshServerDropdown() {
         val currentSelected = serverDropdown.selectedItem
         serverDropdown.removeAllItems()
@@ -154,6 +179,22 @@ class SftpSettingsPanel {
         if (currentSelected in serverListModel.items) {
             serverDropdown.selectedItem = currentSelected
         }
+    }
+
+    fun refreshDefaultProfileDropdown(activeId: String? = null) {
+        val currentSelected = defaultProfileDropdown.selectedItem
+        defaultProfileDropdown.removeAllItems()
+        deploymentListModel.items.forEach { defaultProfileDropdown.addItem(it) }
+
+        if (activeId != null) {
+            defaultProfileDropdown.selectedItem = deploymentListModel.items.find { it.id == activeId }
+        } else if (currentSelected in deploymentListModel.items) {
+            defaultProfileDropdown.selectedItem = currentSelected
+        }
+    }
+
+    fun getSelectedDefaultProfileId(): String {
+        return (defaultProfileDropdown.selectedItem as? DeploymentProfile)?.id ?: ""
     }
 
     private fun loadServer(server: SshServer?) {
@@ -200,6 +241,7 @@ class SftpSettingsPanel {
 
     fun saveCurrentSelection() {
         updateCurrentServer()
+        updateCurrentDeployment()
         deploymentList.selectedValue?.let {
             it.name = depName.text
             it.sshServerId = (serverDropdown.selectedItem as? SshServer)?.id ?: ""

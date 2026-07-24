@@ -8,6 +8,5 @@ out/
 .idea/
 sandbox/
 jdk17.tar.gz
-jdk17.tar.gz
 build/
 .gradle/

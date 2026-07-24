@@ -12,7 +12,7 @@
             instance="com.wanclouds.sftpdeployment.ui.SftpSettingsConfigurable"
             id="com.wanclouds.sftpdeployment.ui.SftpSettingsConfigurable"
             displayName="SFTP Deployment"/>
-        <applicationService serviceImplementation="com.wanclouds.sftpdeployment.settings.SftpSettings"/>
+        <projectService serviceImplementation="com.wanclouds.sftpdeployment.settings.SftpSettings"/>
         <notificationGroup id="SFTP Connection Test" displayType="BALLOON"/>
 
         <toolWindow id="SFTP Changes" 

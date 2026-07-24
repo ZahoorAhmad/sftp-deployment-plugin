@@ -46,18 +46,18 @@ class UploadAction : BaseSftpAction() {
 
     companion object {
         fun uploadVirtualFiles(project: Project, virtualFiles: List<VirtualFile>) {
-            val settings = SftpSettings.getInstance()
+            val settings = SftpSettings.getInstance(project)
             val profile = settings.getActiveProfile() ?: run {
                 NotificationGroupManager.getInstance()
                     .getNotificationGroup("SFTP Connection Test")
-                    .createNotification("Upload Failed", "No active deployment profile selected.", NotificationType.WARNING)
+                    .createNotification("Upload Failed", "No active deployment profile selected for this repository.", NotificationType.WARNING)
                     .notify(project)
                 return
             }
             val server = settings.getServerForProfile(profile) ?: run {
                 NotificationGroupManager.getInstance()
                     .getNotificationGroup("SFTP Connection Test")
-                    .createNotification("Upload Failed", "No SSH server associated with active profile.", NotificationType.ERROR)
+                    .createNotification("Upload Failed", "No SSH server associated with profile '${profile.name}'.", NotificationType.ERROR)
                     .notify(project)
                 return
             }
@@ -128,13 +128,13 @@ class DownloadAction : BaseSftpAction() {
             return
         }
 
-        val settings = SftpSettings.getInstance()
+        val settings = SftpSettings.getInstance(project)
         val profile = settings.getActiveProfile() ?: run {
-            notify(project, "Download Failed", "No active deployment profile selected.", NotificationType.WARNING)
+            notify(project, "Download Failed", "No active deployment profile selected for this repository.", NotificationType.WARNING)
             return
         }
         val server = settings.getServerForProfile(profile) ?: run {
-            notify(project, "Download Failed", "No SSH server associated with active profile.", NotificationType.ERROR)
+            notify(project, "Download Failed", "No SSH server associated with profile '${profile.name}'.", NotificationType.ERROR)
             return
         }
 
