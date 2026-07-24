@@ -11,6 +11,8 @@ import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.vcs.changes.ChangeListManager
+import com.intellij.openapi.vfs.VirtualFile
 import java.io.File
 
 abstract class BaseSftpAction : AnAction() {
@@ -20,49 +22,112 @@ abstract class BaseSftpAction : AnAction() {
             .createNotification(title, content, type)
             .notify(project)
     }
+
+    protected fun getSelectedFiles(e: AnActionEvent): List<VirtualFile> {
+        val filesArray = e.getData(CommonDataKeys.VIRTUAL_FILE_ARRAY)
+        if (!filesArray.isNullOrEmpty()) {
+            return filesArray.toList()
+        }
+        val singleFile = e.getData(CommonDataKeys.VIRTUAL_FILE)
+        return if (singleFile != null) listOf(singleFile) else emptyList()
+    }
 }
 
 class UploadAction : BaseSftpAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        val virtualFile = e.getData(CommonDataKeys.VIRTUAL_FILE) ?: return
-        val settings = SftpSettings.getInstance()
-        val profile = settings.getActiveProfile() ?: run {
-            notify(project, "Upload Failed", "No active deployment profile selected.", NotificationType.WARNING)
+        val virtualFiles = getSelectedFiles(e)
+        if (virtualFiles.isEmpty()) {
+            notify(project, "Upload Failed", "No files selected.", NotificationType.WARNING)
             return
         }
-        val server = settings.getServerForProfile(profile) ?: run {
-            notify(project, "Upload Failed", "No SSH server associated with active profile.", NotificationType.ERROR)
-            return
-        }
+        uploadVirtualFiles(project, virtualFiles)
+    }
 
-        val serverDisplayName = if (server.name.isNotBlank()) server.name else server.host
+    companion object {
+        fun uploadVirtualFiles(project: Project, virtualFiles: List<VirtualFile>) {
+            val settings = SftpSettings.getInstance()
+            val profile = settings.getActiveProfile() ?: run {
+                NotificationGroupManager.getInstance()
+                    .getNotificationGroup("SFTP Connection Test")
+                    .createNotification("Upload Failed", "No active deployment profile selected.", NotificationType.WARNING)
+                    .notify(project)
+                return
+            }
+            val server = settings.getServerForProfile(profile) ?: run {
+                NotificationGroupManager.getInstance()
+                    .getNotificationGroup("SFTP Connection Test")
+                    .createNotification("Upload Failed", "No SSH server associated with active profile.", NotificationType.ERROR)
+                    .notify(project)
+                return
+            }
 
-        ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Uploading to $serverDisplayName...", false) {
-            override fun run(indicator: ProgressIndicator) {
-                try {
+            val serverDisplayName = if (server.name.isNotBlank()) server.name else server.host
+
+            ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Uploading ${virtualFiles.size} file(s) to $serverDisplayName...", false) {
+                override fun run(indicator: ProgressIndicator) {
+                    var successCount = 0
                     val basePath = project.basePath ?: ""
-                    val localFile = File(virtualFile.path)
-                    val relativePath = if (virtualFile.path.startsWith(basePath)) {
-                        virtualFile.path.removePrefix(basePath).removePrefix("/")
-                    } else {
-                        virtualFile.name
+
+                    for ((index, virtualFile) in virtualFiles.withIndex()) {
+                        if (virtualFile.isDirectory) continue
+                        indicator.fraction = index.toDouble() / virtualFiles.size
+                        indicator.text = "Uploading (${index + 1}/${virtualFiles.size}): ${virtualFile.name}"
+
+                        try {
+                            val localFile = File(virtualFile.path)
+                            val relativePath = if (virtualFile.path.startsWith(basePath)) {
+                                virtualFile.path.removePrefix(basePath).removePrefix("/")
+                            } else {
+                                virtualFile.name
+                            }
+
+                            SftpClient.upload(server, localFile, profile.remotePath, relativePath)
+                            successCount++
+                        } catch (ex: Exception) {
+                            // ignore individual failure
+                        }
                     }
 
-                    SftpClient.upload(server, localFile, profile.remotePath, relativePath)
-                    notify(project, "Upload Successful", "Uploaded ${virtualFile.name} to $serverDisplayName (${profile.remotePath})", NotificationType.INFORMATION)
-                } catch (ex: Exception) {
-                    notify(project, "Upload Failed", ex.message ?: "Unknown error occurred", NotificationType.ERROR)
+                    NotificationGroupManager.getInstance()
+                        .getNotificationGroup("SFTP Connection Test")
+                        .createNotification(
+                            "Upload Finished", 
+                            "Successfully uploaded $successCount of ${virtualFiles.size} file(s) to $serverDisplayName (${profile.remotePath})", 
+                            if (successCount > 0) NotificationType.INFORMATION else NotificationType.ERROR
+                        )
+                        .notify(project)
                 }
-            }
-        })
+            })
+        }
+    }
+}
+
+class UploadAllChangedAction : BaseSftpAction() {
+    override fun actionPerformed(e: AnActionEvent) {
+        val project = e.project ?: return
+        val changeListManager = ChangeListManager.getInstance(project)
+        val changes = changeListManager.allChanges
+        val changedVirtualFiles = changes.mapNotNull { it.virtualFile }.filter { !it.isDirectory }
+
+        if (changedVirtualFiles.isEmpty()) {
+            notify(project, "Upload All Changes", "No modified Git files found to upload.", NotificationType.INFORMATION)
+            return
+        }
+
+        UploadAction.uploadVirtualFiles(project, changedVirtualFiles)
     }
 }
 
 class DownloadAction : BaseSftpAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        val virtualFile = e.getData(CommonDataKeys.VIRTUAL_FILE) ?: return
+        val virtualFiles = getSelectedFiles(e)
+        if (virtualFiles.isEmpty()) {
+            notify(project, "Download Failed", "No files selected.", NotificationType.WARNING)
+            return
+        }
+
         val settings = SftpSettings.getInstance()
         val profile = settings.getActiveProfile() ?: run {
             notify(project, "Download Failed", "No active deployment profile selected.", NotificationType.WARNING)
@@ -75,23 +140,38 @@ class DownloadAction : BaseSftpAction() {
 
         val serverDisplayName = if (server.name.isNotBlank()) server.name else server.host
 
-        ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Downloading from $serverDisplayName...", false) {
+        ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Downloading ${virtualFiles.size} file(s) from $serverDisplayName...", false) {
             override fun run(indicator: ProgressIndicator) {
-                try {
-                    val basePath = project.basePath ?: ""
-                    val relativePath = if (virtualFile.path.startsWith(basePath)) {
-                        virtualFile.path.removePrefix(basePath).removePrefix("/")
-                    } else {
-                        virtualFile.name
-                    }
-                    val remoteFilePath = "${profile.remotePath}/$relativePath"
+                var successCount = 0
+                val basePath = project.basePath ?: ""
 
-                    SftpClient.download(server, remoteFilePath, virtualFile.path)
-                    virtualFile.refresh(false, false)
-                    notify(project, "Download Successful", "Downloaded ${virtualFile.name} from $serverDisplayName", NotificationType.INFORMATION)
-                } catch (ex: Exception) {
-                    notify(project, "Download Failed", ex.message ?: "Unknown error occurred", NotificationType.ERROR)
+                for ((index, virtualFile) in virtualFiles.withIndex()) {
+                    if (virtualFile.isDirectory) continue
+                    indicator.fraction = index.toDouble() / virtualFiles.size
+                    indicator.text = "Downloading (${index + 1}/${virtualFiles.size}): ${virtualFile.name}"
+
+                    try {
+                        val relativePath = if (virtualFile.path.startsWith(basePath)) {
+                            virtualFile.path.removePrefix(basePath).removePrefix("/")
+                        } else {
+                            virtualFile.name
+                        }
+                        val remoteFilePath = "${profile.remotePath}/$relativePath"
+
+                        SftpClient.download(server, remoteFilePath, virtualFile.path)
+                        virtualFile.refresh(false, false)
+                        successCount++
+                    } catch (ex: Exception) {
+                        // ignore individual failure
+                    }
                 }
+
+                notify(
+                    project, 
+                    "Download Finished", 
+                    "Successfully downloaded $successCount of ${virtualFiles.size} file(s) from $serverDisplayName", 
+                    if (successCount > 0) NotificationType.INFORMATION else NotificationType.ERROR
+                )
             }
         })
     }

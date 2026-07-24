@@ -14,9 +14,9 @@
             displayName="SFTP Deployment"/>
         <applicationService serviceImplementation="com.wanclouds.sftpdeployment.settings.SftpSettings"/>
         <notificationGroup id="SFTP Connection Test" displayType="BALLOON"/>
-        
+
         <toolWindow id="SFTP Changes" 
-                    anchor="right" 
+                    anchor="left" 
                     factoryClass="com.wanclouds.sftpdeployment.ui.SftpToolWindowFactory"
                     icon="AllIcons.Actions.Upload"/>
     </extensions>
@@ -24,8 +24,11 @@
     <actions>
         <group id="SftpDeploymentMenu" text="SFTP Deployment" popup="true">
             <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
-            <action id="SftpUploadAction" class="com.wanclouds.sftpdeployment.actions.UploadAction" text="Upload via SFTP"/>
-            <action id="SftpDownloadAction" class="com.wanclouds.sftpdeployment.actions.DownloadAction" text="Download via SFTP"/>
+            <add-to-group group-id="ChangesViewPopupMenu" anchor="last"/>
+            <add-to-group group-id="Vcs.MessageActionGroup" anchor="last"/>
+            <action id="SftpUploadAction" class="com.wanclouds.sftpdeployment.actions.UploadAction" text="Upload Selected via SFTP"/>
+            <action id="SftpUploadAllChangedAction" class="com.wanclouds.sftpdeployment.actions.UploadAllChangedAction" text="⚡ Upload ALL Git Changes via SFTP"/>
+            <action id="SftpDownloadAction" class="com.wanclouds.sftpdeployment.actions.DownloadAction" text="Download Selected via SFTP"/>
         </group>
     </actions>
 </idea-plugin>
