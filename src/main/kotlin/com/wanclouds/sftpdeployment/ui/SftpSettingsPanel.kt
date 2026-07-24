@@ -84,6 +84,10 @@ class SftpSettingsPanel(private val project: Project) {
                     row("Private Key:") { cell(srvKeyPath).align(Align.FILL) }
                     row("Password/Passphrase:") { cell(srvSecret).align(Align.FILL) }
                     row {
+                        button("💾 Save Server") {
+                            updateCurrentServer()
+                            Messages.showInfoMessage("Server configuration updated successfully!", "Saved")
+                        }
                         button("Test Connection") { testConnection() }
                     }
                 }.align(Align.FILL)
@@ -112,6 +116,12 @@ class SftpSettingsPanel(private val project: Project) {
                     row("SSH Server:") { cell(serverDropdown).align(Align.FILL) }
                     row("Remote Path:") { cell(depRemotePath).align(Align.FILL) }
                     row { cell(depAutoUpload) }
+                    row {
+                        button("💾 Save Profile") {
+                            updateCurrentDeployment()
+                            Messages.showInfoMessage("Deployment profile updated successfully!", "Saved")
+                        }
+                    }
                 }.align(Align.FILL)
             }
         }

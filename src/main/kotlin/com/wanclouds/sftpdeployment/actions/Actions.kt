@@ -2,11 +2,13 @@ package com.wanclouds.sftpdeployment.actions
 
 import com.wanclouds.sftpdeployment.settings.SftpSettings
 import com.wanclouds.sftpdeployment.sftp.SftpClient
+import com.wanclouds.sftpdeployment.ui.SftpSettingsConfigurable
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
+import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
@@ -30,6 +32,13 @@ abstract class BaseSftpAction : AnAction() {
         }
         val singleFile = e.getData(CommonDataKeys.VIRTUAL_FILE)
         return if (singleFile != null) listOf(singleFile) else emptyList()
+    }
+}
+
+class OpenSettingsAction : BaseSftpAction() {
+    override fun actionPerformed(e: AnActionEvent) {
+        val project = e.project ?: return
+        ShowSettingsUtil.getInstance().showSettingsDialog(project, SftpSettingsConfigurable::class.java)
     }
 }
 
